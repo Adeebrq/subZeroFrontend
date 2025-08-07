@@ -120,3 +120,44 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+  opacity: 0; /* Start hidden */
+}
+
+.animation-delay-300 {
+  animation-delay: 0.3s;
+}
+
+.animation-delay-600 {
+  animation-delay: 0.6s;
+}
+
+.animation-delay-900 {
+  animation-delay: 0.9s;
+}
+
+@font-face {
+  font-family: 'MyCustomFont';
+  src: url('/fonts/SquareGame.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+
+.logo {
+  font-family: 'MyCustomFont', sans-serif;
+}

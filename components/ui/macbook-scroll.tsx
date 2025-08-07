@@ -79,7 +79,7 @@ export const MacbookScroll = ({
       >
         {title || (
           <span>
-            This Macbook is built with Tailwindcss. <br /> No kidding.
+            Micro trading at your fingertips. <br /> Small trades, powerful results. Pure AVAX precision.
           </span>
         )}
       </motion.h2>
