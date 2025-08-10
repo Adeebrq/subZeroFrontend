@@ -4,13 +4,13 @@ import Head from "next/head";
 import { useWallet } from '../contexts/walletContext';
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { WobbleCardDemo } from "@/components/bentoCards";
+import { HackathonFooter } from "@/components/BackgroundGradientAnimation";
+import { StickyScrollReveal } from "@/components/StickyScroll";
 
 const NAV_ITEMS = [
  { href: "#features", label: "Features" },
- { href: "#onboarding", label: "Onboarding" },
- { href: "#calculator", label: "Calculator" },
- { href: "#pricing", label: "Pricing" },
- { href: "#faqs", label: "FAQs" },
+ { href: "#workings", label: "workings" },
 ];
 
 // Components
@@ -89,16 +89,24 @@ const Navigation = () => {
 
   return (
     <nav className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 backdrop-blur-md bg-white/10 border border-white/20 shadow-lg px-10 py-3 rounded-full flex items-center gap-6 text-white text-sm font-medium">
-      <div className="logo text-white text-3xl font-bold mr-6">SubZero</div>
+      <div className="logo text-cyan-500 text-3xl font-bold mr-6">SubZero</div>
       {NAV_ITEMS.map((item) => (
-        <a
-          key={item.href}
-          href={item.href}
-          className="hover:text-blue-400 transition-colors duration-200"
-        >
-          {item.label}
-        </a>
-      ))}
+  <a
+    key={item.label}
+    href={item.href}
+    className=" text-cyan-500  hover:text-gray-900 transition-colors"
+    onClick={(e) => {
+      e.preventDefault();
+      const element = document.querySelector(item.href);
+      element?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }}
+  >
+    {item.label}
+  </a>
+))}
       
       <div className="ml-6 flex flex-col items-end">
         {!isMounted ? (
@@ -139,19 +147,20 @@ const Navigation = () => {
   );
 };
 
+
 const HeroContent = () => (
   <div className="flex-1">
     <h1 className="text-white text-6xl font-extrabold leading-tight mb-5 animate-fade-in-up">
       Turn your<br />
-      Shoppers into<br />
-      <span className="bg-white px-4 py-1 rounded-md inline-block">
+      Trades into<br />
+      <span className="bg-[#ffffff] px-4 py-1 rounded-md inline-block">
         <span className="bg-gradient-to-r from-blue-600 to-blue-900 bg-clip-text text-transparent font-extrabold">
-          Subscribers
+        Fortunes
         </span>
       </span>
     </h1>
     <p className="text-white text-lg leading-relaxed mb-10 opacity-90 animate-fade-in-up animation-delay-150">
-      Watch your MRR grow while you sleep - manage subscriptions, optimize payments, and retain customers in one seamless platform.
+    Watch your wealth multiply while you sleep, master decentralized microtrading, copy proven strategies, and compound returns on Avalanche's lightning network.
     </p>
     <a
       href="#get-started"
@@ -171,7 +180,7 @@ const HeroSection = () => (
       <HeroContent />
       <div className="w-auto p-0">
         <div className="flex flex-col gap-3">
-          <div className="w-[356px] h-[249px] animate-fade-in-up animation-delay-300">
+          <div className="w-[356px] h-[249px] bg-white rounded-lg animate-fade-in-up animation-delay-300">
             <img src="/1.svg" alt="Card 1" className="w-full h-full object-cover" />
           </div>
           <div className="w-[350px] h-[200px] animate-fade-in-up animation-delay-600">
@@ -200,6 +209,10 @@ export default function CopticsLanding() {
       </Head>
       <HeroSection />
       <MacbookScroll />
+      <div className="min-h-[800px]"></div>
+      <div id="features" className="mt-12"><WobbleCardDemo /></div>
+      <div id="workings"><StickyScrollReveal/></div>
+              <HackathonFooter/>
     </div>
   );
 }
