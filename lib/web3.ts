@@ -102,6 +102,19 @@ interface FollowingStatus {
   percentage: number;
 }
 
+// ✅ Error handling interface
+interface ErrorWithMessage {
+  message?: string;
+  code?: number;
+}
+
+// ✅ API Response interface
+interface ApiResponse {
+  success: boolean;
+  error?: string;
+  data?: unknown;
+}
+
 /**
  * Get main contract instance for read-only operations
  */
@@ -196,7 +209,7 @@ export const connectMetaMask = async (): Promise<ConnectResult> => {
         typeof switchError === 'object' && 
         switchError !== null && 
         'code' in switchError && 
-        (switchError as any).code === 4902
+        (switchError as ErrorWithMessage).code === 4902
       ) {
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
@@ -265,7 +278,7 @@ export const getAssetBytes32 = (symbol: string): string => {
 /**
  * Make API call with proper error handling
  */
-export const apiCall = async (endpoint: string, options?: RequestInit): Promise<any> => {
+export const apiCall = async (endpoint: string, options?: RequestInit): Promise<ApiResponse> => {
   try {
     const url = `${API_CONFIG.baseUrl}${endpoint}`;
     const response = await fetch(url, {
@@ -310,8 +323,9 @@ export const depositForCopyTrading = async (amountAVAX: string): Promise<string>
     
     await tx.wait();
     return tx.hash;
-  } catch (error: any) {
-    throw new Error(`Deposit failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Deposit failed: ${errorMsg}`);
   }
 };
 
@@ -335,8 +349,9 @@ export const followTrader = async (traderAddress: string, percentage: number): P
     
     await tx.wait();
     return tx.hash;
-  } catch (error: any) {
-    throw new Error(`Follow trader failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Follow trader failed: ${errorMsg}`);
   }
 };
 
@@ -352,8 +367,9 @@ export const unfollowTrader = async (traderAddress: string): Promise<string> => 
     
     await tx.wait();
     return tx.hash;
-  } catch (error: any) {
-    throw new Error(`Unfollow trader failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Unfollow trader failed: ${errorMsg}`);
   }
 };
 
@@ -369,8 +385,9 @@ export const withdrawFromVault = async (amountAVAX: string): Promise<string> => 
     
     await tx.wait();
     return tx.hash;
-  } catch (error: any) {
-    throw new Error(`Withdrawal failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Withdrawal failed: ${errorMsg}`);
   }
 };
 
@@ -386,8 +403,9 @@ export const getUserCopyInfo = async (userAddress: string): Promise<CopyTradingI
       depositedBalance: parseFloat(ethers.formatEther(depositedBalance)),
       totalFollowing: parseInt(totalFollowing.toString())
     };
-  } catch (error: any) {
-    throw new Error(`Get copy info failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Get copy info failed: ${errorMsg}`);
   }
 };
 
@@ -406,8 +424,9 @@ export const checkIsFollowing = async (followerAddress: string, traderAddress: s
       isFollowing,
       percentage: parseInt(percentage.toString())
     };
-  } catch (error: any) {
-    throw new Error(`Check following failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Check following failed: ${errorMsg}`);
   }
 };
 
@@ -419,8 +438,9 @@ export const getDepositedFunds = async (userAddress: string): Promise<number> =>
     const contract = getVaultReadOnlyContract();
     const depositedFunds = await contract.depositedFunds(userAddress);
     return parseFloat(ethers.formatEther(depositedFunds));
-  } catch (error: any) {
-    throw new Error(`Get deposited funds failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Get deposited funds failed: ${errorMsg}`);
   }
 };
 
@@ -433,8 +453,9 @@ export const getVaultPosition = async (userAddress: string, assetSymbol: string)
     const bytes32Asset = getAssetBytes32(assetSymbol);
     const position = await contract.vaultPositions(userAddress, bytes32Asset);
     return parseFloat(ethers.formatEther(position));
-  } catch (error: any) {
-    throw new Error(`Get vault position failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Get vault position failed: ${errorMsg}`);
   }
 };
 
@@ -445,8 +466,9 @@ export const checkIsAuthorizedExecutor = async (executorAddress: string): Promis
   try {
     const contract = getVaultReadOnlyContract();
     return await contract.isAuthorizedExecutor(executorAddress);
-  } catch (error: any) {
-    throw new Error(`Check authorization failed: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Check authorization failed: ${errorMsg}`);
   }
 };
 
@@ -455,7 +477,7 @@ export const checkIsAuthorizedExecutor = async (executorAddress: string): Promis
 /**
  * Follow a trader via API (updates database)
  */
-export const followTraderAPI = async (followerAddress: string, traderAddress: string, allocationPercentage: number) => {
+export const followTraderAPI = async (followerAddress: string, traderAddress: string, allocationPercentage: number): Promise<ApiResponse> => {
   return await apiCall(`${API_CONFIG.endpoints.copyTrading}/follow`, {
     method: 'POST',
     body: JSON.stringify({
@@ -469,7 +491,7 @@ export const followTraderAPI = async (followerAddress: string, traderAddress: st
 /**
  * Unfollow a trader via API
  */
-export const unfollowTraderAPI = async (followerAddress: string, traderAddress: string) => {
+export const unfollowTraderAPI = async (followerAddress: string, traderAddress: string): Promise<ApiResponse> => {
   return await apiCall(`${API_CONFIG.endpoints.copyTrading}/unfollow`, {
     method: 'POST',
     body: JSON.stringify({
@@ -482,35 +504,35 @@ export const unfollowTraderAPI = async (followerAddress: string, traderAddress: 
 /**
  * Get user's followed traders
  */
-export const getFollowedTraders = async (address: string) => {
+export const getFollowedTraders = async (address: string): Promise<ApiResponse> => {
   return await apiCall(`${API_CONFIG.endpoints.copyTrading}/following/${address}`);
 };
 
 /**
  * Get traders leaderboard
  */
-export const getTradersLeaderboard = async (limit: number = 20) => {
+export const getTradersLeaderboard = async (limit: number = 20): Promise<ApiResponse> => {
   return await apiCall(`${API_CONFIG.endpoints.copyTrading}/leaderboard?limit=${limit}`);
 };
 
 /**
  * Get user's copy trade history
  */
-export const getCopyTradeHistory = async (address: string, limit: number = 50, offset: number = 0) => {
+export const getCopyTradeHistory = async (address: string, limit: number = 50, offset: number = 0): Promise<ApiResponse> => {
   return await apiCall(`${API_CONFIG.endpoints.copyTrading}/history/${address}?limit=${limit}&offset=${offset}`);
 };
 
 /**
  * Test copy trading events
  */
-export const testCopyTradingEvents = async () => {
+export const testCopyTradingEvents = async (): Promise<ApiResponse> => {
   return await apiCall(`${API_CONFIG.endpoints.copyTrading}/test-events`);
 };
 
 /**
  * Check vault configuration
  */
-export const checkVaultConfiguration = async () => {
+export const checkVaultConfiguration = async (): Promise<ApiResponse> => {
   return await apiCall(`${API_CONFIG.endpoints.copyTrading}/check-vault-config`);
 };
 
@@ -598,7 +620,7 @@ export interface TraderFollowedEvent {
 /**
  * Listen to vault contract events
  */
-export const listenToVaultEvents = (callback: (event: any) => void) => {
+export const listenToVaultEvents = (callback: (event: unknown) => void) => {
   if (typeof window === 'undefined') return;
   
   try {

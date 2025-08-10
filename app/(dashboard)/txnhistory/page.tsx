@@ -1,15 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { ethers } from 'ethers';
 
-// ✅ Import from centralized utils (same as your TradePage)
+// ✅ Import from centralized utils (only what we need)
 import { 
   connectMetaMask, 
-  checkMetaMaskConnection,
-  apiCall,
-  API_CONFIG
+  checkMetaMaskConnection
 } from '../../../lib/web3';
 
 interface Transaction {
@@ -42,7 +39,7 @@ interface TransactionHistoryResponse {
 }
 
 export default function TransactionHistoryPage() {
-  // ✅ Wallet states (same pattern as TradePage)
+  // ✅ Wallet states
   const [account, setAccount] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   
@@ -83,49 +80,16 @@ export default function TransactionHistoryPage() {
     return value.toFixed(2);
   };
 
-  // ✅ Initialize MetaMask connection (same as TradePage)
-  useEffect(() => {
-    const initializeConnection = async () => {
-      const { isConnected, account } = await checkMetaMaskConnection();
-      if (isConnected && account) {
-        setAccount(account);
-        setIsConnected(true);
-      }
-    };
-    
-    initializeConnection();
-  }, []);
-
-  // ✅ Fetch transaction history when connected (same pattern as TradePage)
-  useEffect(() => {
-    if (isConnected && account) {
-      fetchTransactionHistory();
-    }
-  }, [isConnected, account, currentPage]);
-
-  // ✅ Connect to MetaMask (same as TradePage)
-  const handleConnectWallet = async () => {
-    try {
-      const { account } = await connectMetaMask();
-      setAccount(account);
-      setIsConnected(true);
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
-
-  // ✅ FIXED: Correct API endpoint for portfolio history
-  const fetchTransactionHistory = async () => {
+  // ✅ FIXED: Correct API endpoint for portfolio history with useCallback
+  const fetchTransactionHistory = useCallback(async () => {
     if (!account) return;
 
     setLoading(true);
     setError('');
 
     try {
-      const offset = (currentPage - 1) * itemsPerPage;
-      
       // ✅ FIXED: Use the correct portfolio endpoint with dynamic address
-      const apiUrl = `https://subzero-q6rn.onrender.com/v1/api/portfolio/${account}/history`
+      const apiUrl = `https://subzero-q6rn.onrender.com/v1/api/portfolio/${account}/history`;
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
@@ -145,11 +109,44 @@ export default function TransactionHistoryPage() {
       } else {
         setError('Failed to fetch transaction history');
       }
-    } catch (error: any) {
-      console.error('Error fetching transaction history:', error);
-      setError(error.message || 'Failed to fetch transaction history');
+    } catch (err: unknown) {
+      console.error('Error fetching transaction history:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch transaction history';
+      setError(errorMessage);
     } finally {
       setLoading(false);
+    }
+  }, [account]);
+
+  // ✅ Initialize MetaMask connection
+  useEffect(() => {
+    const initializeConnection = async () => {
+      const { isConnected, account } = await checkMetaMaskConnection();
+      if (isConnected && account) {
+        setAccount(account);
+        setIsConnected(true);
+      }
+    };
+    
+    initializeConnection();
+  }, []);
+
+  // ✅ Fetch transaction history when connected
+  useEffect(() => {
+    if (isConnected && account) {
+      fetchTransactionHistory();
+    }
+  }, [isConnected, account, currentPage, fetchTransactionHistory]);
+
+  // ✅ Connect to MetaMask
+  const handleConnectWallet = async () => {
+    try {
+      const { account } = await connectMetaMask();
+      setAccount(account);
+      setIsConnected(true);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
+      setError(errorMessage);
     }
   };
 
@@ -195,10 +192,10 @@ export default function TransactionHistoryPage() {
   return (
     <div className="min-h-screen overflow-y-auto bg-gray-50 dark:bg-neutral-900">
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Header Section (same style as TradePage) */}
+        {/* Header Section */}
         <div className="flex items-center gap-4 mb-8">
           <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-tl from-gray-200 to-gray-900 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-tl from-gray-200 to-gray-900 bg-clip-text text-transparent">
               Transaction History
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
@@ -217,7 +214,7 @@ export default function TransactionHistoryPage() {
           </div>
         </div>
 
-        {/* ✅ MetaMask Connection Banner (same as TradePage) */}
+        {/* ✅ MetaMask Connection Banner */}
         {!isConnected && (
           <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded mb-6">
             <div className="flex items-center justify-between">
@@ -234,29 +231,8 @@ export default function TransactionHistoryPage() {
           </div>
         )}
 
-        {/* Connected Account Info
-        {isConnected && (
-          <div className="bg-white dark:bg-neutral-800 rounded-lg border p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Connected Account</p>
-                <p className="font-mono text-lg font-medium text-gray-900 dark:text-white">{account}</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={fetchTransactionHistory}
-                  disabled={loading}
-                  className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                >
-                  🔄 Refresh
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Error State */}
-        {/* {error && (
+        {error && (
           <div className="mb-6 p-3 rounded-md text-sm font-medium bg-red-100 text-red-700 border border-red-200">
             <p className="font-medium">Error</p>
             <p>{error}</p>
@@ -264,12 +240,12 @@ export default function TransactionHistoryPage() {
         )}
 
         {/* Loading State */}
-        {/* {loading && (
+        {loading && (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <span className="ml-3 text-lg text-gray-900 dark:text-white">Loading transactions...</span>
           </div>
-        )}   */}
+        )}
 
         {/* ✅ Transaction History Grid with null safety */}
         {isConnected && !loading && transactions && transactions.length > 0 && (
@@ -509,7 +485,7 @@ export default function TransactionHistoryPage() {
               No transactions found
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
-              You haven't made any transactions yet. Start trading to see your history here!
+              You haven&apos;t made any transactions yet. Start trading to see your history here!
             </p>
           </div>
         )}

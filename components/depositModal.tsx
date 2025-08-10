@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import { X, Wallet, Plus, AlertCircle, Check } from 'lucide-react';
 
-// Mock toast function for the component
-const toast = {
-  success: (message: string) => console.log('Success:', message),
-  error: (message: string) => console.log('Error:', message),
-  loading: (message: string) => console.log('Loading:', message),
-  dismiss: () => console.log('Toast dismissed')
-};
-
 interface DepositModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -67,8 +59,9 @@ const DepositModal: React.FC<DepositModalProps> = ({
       setDepositAmount('');
       setError('');
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Deposit failed');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Deposit failed';
+      setError(errorMessage);
     }
   };
 

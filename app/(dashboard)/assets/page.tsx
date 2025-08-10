@@ -89,8 +89,7 @@ function ComingSoon() {
 export default function AssetsPage() {
   const router = useRouter();
   
-  // ✅ Wallet states (same pattern as TradePage and TxnHistory)
-  const [_account, setAccount] = useState<string>('');
+  // ✅ Wallet states - FIXED: Removed unused _account variable
   const [isConnected, setIsConnected] = useState<boolean>(false);
   
   // ✅ Assets states
@@ -115,12 +114,11 @@ export default function AssetsPage() {
     return nameToSymbol[name] || name.substring(0, 3).toUpperCase();
   };
 
-  // ✅ Initialize MetaMask connection (same as TxnHistory)
+  // ✅ Initialize MetaMask connection - FIXED: Removed unused account
   useEffect(() => {
     const initializeConnection = async () => {
-      const { isConnected, account } = await checkMetaMaskConnection();
-      if (isConnected && account) {
-        setAccount(account);
+      const { isConnected } = await checkMetaMaskConnection();
+      if (isConnected) {
         setIsConnected(true);
       }
     };
@@ -133,18 +131,18 @@ export default function AssetsPage() {
     fetchAssets();
   }, []);
 
-  // ✅ Connect to MetaMask (same as TxnHistory)
+  // ✅ Connect to MetaMask - FIXED: Proper error handling without 'any'
   const handleConnectWallet = async () => {
     try {
-      const { account } = await connectMetaMask();
-      setAccount(account);
+      await connectMetaMask();
       setIsConnected(true);
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
     }
   };
 
-  // ✅ Fetch assets from API (same pattern as TxnHistory)
+  // ✅ Fetch assets from API - FIXED: Proper error handling without 'any'
   const fetchAssets = async () => {
     setLoading(true);
     setError('');
@@ -181,9 +179,10 @@ export default function AssetsPage() {
       } else {
         setError('Failed to fetch assets');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching assets:', error);
-      setError(error.message || 'Failed to fetch assets');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch assets';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

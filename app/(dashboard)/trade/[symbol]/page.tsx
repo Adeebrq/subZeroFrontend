@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { AdvancedRealTimeChart } from "react-ts-tradingview-widgets";
 import { ethers } from "ethers";
@@ -17,11 +17,13 @@ import {
   getAssetBytes32,
   apiCall,
   API_CONFIG,
-  type AssetInvestmentResponse,
   type TransactionRequest 
 } from '../../../../lib/web3';
 
-interface TradePageProps {}
+// ✅ Fixed: Removed unused AssetInvestmentResponse import and defined proper interface
+interface TradePageProps {
+  // Add any props if needed in the future
+}
 
 interface AssetData {
   symbol: string;
@@ -35,6 +37,17 @@ interface AssetData {
 interface UserHoldings {
   avax: number;
   asset: number;
+}
+
+// ✅ Fixed: Proper type for symbol mappings
+interface SymbolMappings {
+  [key: string]: string;
+}
+
+// ✅ Fixed: Proper error type
+interface ErrorWithMessage {
+  message?: string;
+  reason?: string;
 }
 
 export default function TradePage({}: TradePageProps) {
@@ -61,8 +74,8 @@ export default function TradePage({}: TradePageProps) {
     profitPercentage: 0
   });
 
-  // Fetch profits data function
-  const fetchProfitsData = async () => {
+  // ✅ Fixed: Memoized fetchProfitsData function
+  const fetchProfitsData = useCallback(async () => {
     if (!account || !assetData) return;
 
     try {
@@ -72,7 +85,7 @@ export default function TradePage({}: TradePageProps) {
       const assetPnL = await contract.getUserAssetPnL(account, bytes32Symbol);
       const totalValue = await contract.getUserTotalValue(account);
       
-      const pnlAvax = parseFloat(ethers.formatEther(assetPnL));
+      // ✅ Fixed: Removed unused pnlAvax variable
       const totalInvested = parseFloat(ethers.formatEther(totalValue[0]));
       const totalPnL = parseFloat(ethers.formatEther(totalValue[1]));
       
@@ -95,7 +108,7 @@ export default function TradePage({}: TradePageProps) {
         profitPercentage: 0
       });
     }
-  };
+  }, [account, assetData]);
 
   const symbol = params?.symbol as string;
 
@@ -112,12 +125,48 @@ export default function TradePage({}: TradePageProps) {
     initializeConnection();
   }, []);
 
-  // ✅ Fetch user holdings when connected and asset data is available
+  // ✅ Fixed: Memoized fetchUserHoldings function
+  const fetchUserHoldings = useCallback(async () => {
+    if (!account || !assetData) return;
+
+    try {
+      const refreshToast = toast.loading('Refreshing balances...');
+      
+      const avaxBalance = await getUserAvaxBalance(account);
+      setUserHoldings(prev => ({ ...prev, avax: avaxBalance }));
+
+      const contract = getReadOnlyContract();
+      const bytes32Symbol = getAssetBytes32(assetData.symbol);
+      
+      const investmentWei = await contract.getUserAssetInvestment(account, bytes32Symbol);
+      const investmentAvax = parseFloat(ethers.formatEther(investmentWei));
+      
+      setUserHoldings(prev => ({
+        ...prev,
+        asset: investmentAvax
+      }));
+
+      await fetchProfitsData();
+
+      toast.dismiss(refreshToast);
+      toast.success('Balances updated successfully!');
+
+      console.log(`User has ${investmentAvax} AVAX invested in ${assetData.symbol}`);
+
+    } catch (error) {
+      const typedError = error as ErrorWithMessage;
+      console.error("Error fetching user holdings:", error);
+      toast.error('Failed to refresh balances');
+      setUserHoldings(prev => ({ ...prev, asset: 0 }));
+    }
+  }, [account, assetData, fetchProfitsData]);
+
+  // ✅ Fixed: Fetch user holdings when connected and asset data is available
   useEffect(() => {
     if (isConnected && assetData) {
       fetchUserHoldings();
     }
-  }, [isConnected, assetData]);
+  }, [isConnected, assetData, fetchUserHoldings]);
 
   // ✅ Get asset data from URL search params
   useEffect(() => {
@@ -143,44 +192,10 @@ export default function TradePage({}: TradePageProps) {
       toast.success('Wallet connected successfully!');
       setAccount(account);
       setIsConnected(true);
-    } catch (error: any) {
+    } catch (error) {
+      const typedError = error as ErrorWithMessage;
       toast.dismiss();
-      toast.error(error.message || 'Failed to connect wallet');
-    }
-  };
-
-  // Update your fetchUserHoldings function to also fetch profits
-  const fetchUserHoldings = async () => {
-    if (!account || !assetData) return;
-  
-    try {
-      const refreshToast = toast.loading('Refreshing balances...');
-      
-      const avaxBalance = await getUserAvaxBalance(account);
-      setUserHoldings(prev => ({ ...prev, avax: avaxBalance }));
-  
-      const contract = getReadOnlyContract();
-      const bytes32Symbol = getAssetBytes32(assetData.symbol);
-      
-      const investmentWei = await contract.getUserAssetInvestment(account, bytes32Symbol);
-      const investmentAvax = parseFloat(ethers.formatEther(investmentWei));
-      
-      setUserHoldings(prev => ({
-        ...prev,
-        asset: investmentAvax
-      }));
-  
-      await fetchProfitsData();
-  
-      toast.dismiss(refreshToast);
-      toast.success('Balances updated successfully!');
-  
-      console.log(`User has ${investmentAvax} AVAX invested in ${assetData.symbol}`);
-  
-    } catch (error: any) {
-      console.error("Error fetching user holdings:", error);
-      toast.error('Failed to refresh balances');
-      setUserHoldings(prev => ({ ...prev, asset: 0 }));
+      toast.error(typedError.message || 'Failed to connect wallet');
     }
   };
 
@@ -190,37 +205,37 @@ export default function TradePage({}: TradePageProps) {
       toast.error("Please connect MetaMask first");
       return;
     }
-  
+
     if (!avaxAmount || parseFloat(avaxAmount) <= 0) {
       toast.error("Please enter a valid AVAX amount");
       return;
     }
-  
+
     const amount = parseFloat(avaxAmount);
     if (amount < 0.01 || amount > 10) {
       toast.error("Amount must be between 0.01 and 10 AVAX");
       return;
     }
-  
+
     if (amount > userHoldings.avax) {
       toast.error(`Insufficient AVAX balance. You have ${userHoldings.avax.toFixed(4)} AVAX`);
       return;
     }
-  
+
     setLoading(true);
     setTransactionStatus("Preparing transaction...");
-  
+
     try {
       const contract = await getSignerContract();
       const bytes32Symbol = getAssetBytes32(assetData!.symbol);
-  
+
       setTransactionStatus("Calling smart contract...");
       
       const tx = await contract.investInAsset(bytes32Symbol, {
         value: ethers.parseEther(avaxAmount),
         gasLimit: 300000,
       });
-  
+
       toast.success(`Transaction submitted: ${tx.hash.substring(0, 10)}...`);
       setTransactionStatus(`Transaction sent: ${tx.hash.substring(0, 10)}...`);
       
@@ -234,12 +249,12 @@ export default function TradePage({}: TradePageProps) {
         amount_avax: amount,
         tx_hash: receipt.hash,
       };
-  
+
       const apiResult = await apiCall(`${API_CONFIG.endpoints.trading}/buy`, {
         method: "POST",
         body: JSON.stringify(requestData),
       });
-  
+
       if (apiResult.success) {
         toast.success(`Successfully invested ${amount} AVAX in ${assetData!.symbol}!`);
         setTransactionStatus("✅ Investment successful!");
@@ -250,15 +265,16 @@ export default function TradePage({}: TradePageProps) {
       } else {
         throw new Error(apiResult.error || "Backend API failed");
       }
-  
-    } catch (error: any) {
+
+    } catch (error) {
+      const typedError = error as ErrorWithMessage;
       console.error("Buy failed:", error);
       
       let errorMessage = "Unknown error occurred";
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.reason) {
-        errorMessage = error.reason;
+      if (typedError.message) {
+        errorMessage = typedError.message;
+      } else if (typedError.reason) {
+        errorMessage = typedError.reason;
       }
       
       toast.error(`Investment failed: ${errorMessage}`);
@@ -275,36 +291,36 @@ export default function TradePage({}: TradePageProps) {
       toast.error("Please connect MetaMask first");
       return;
     }
-  
+
     if (!avaxAmount || parseFloat(avaxAmount) <= 0) {
       toast.error("Please enter a valid AVAX amount to sell");
       return;
     }
-  
+
     const sellAmount = parseFloat(avaxAmount);
     if (sellAmount > userHoldings.asset) {
       toast.error(`Cannot sell ${sellAmount} AVAX - you only have ${userHoldings.asset} AVAX invested in ${assetData!.symbol}`);
       return;
     }
-  
+
     if (sellAmount < 0.001) {
       toast.error("Minimum sell amount is 0.001 AVAX");
       return;
     }
-  
+
     const isPartialSell = sellAmount < userHoldings.asset;
     
     setLoading(true);
     setTransactionStatus(isPartialSell ? "Preparing partial sell..." : "Preparing complete position closure...");
-  
+
     try {
       const contract = await getSignerContract();
       const bytes32Symbol = getAssetBytes32(assetData!.symbol);
-  
+
       let tx;
       let endpoint;
       let requestBody: TransactionRequest;
-  
+
       if (isPartialSell) {
         setTransactionStatus("Executing partial sell...");
         const sellAmountWei = ethers.parseEther(avaxAmount);
@@ -312,7 +328,7 @@ export default function TradePage({}: TradePageProps) {
         tx = await contract.sellPartial(bytes32Symbol, sellAmountWei, {
           gasLimit: 500000,
         });
-  
+
         endpoint = `${API_CONFIG.endpoints.trading}/sellpartial`;
         requestBody = {
           user_address: account,
@@ -326,7 +342,7 @@ export default function TradePage({}: TradePageProps) {
         tx = await contract.closePositionByAsset(bytes32Symbol, {
           gasLimit: 300000,
         });
-  
+
         endpoint = `${API_CONFIG.endpoints.trading}/sell`;
         requestBody = {
           user_address: account,
@@ -334,7 +350,7 @@ export default function TradePage({}: TradePageProps) {
           tx_hash: '',
         };
       }
-  
+
       toast.success(`Transaction submitted: ${tx.hash.substring(0, 10)}...`);
       setTransactionStatus(`Transaction sent: ${tx.hash.substring(0, 10)}...`);
       
@@ -360,15 +376,16 @@ export default function TradePage({}: TradePageProps) {
       } else {
         throw new Error(apiResult.error || "Backend API failed");
       }
-  
-    } catch (error: any) {
+
+    } catch (error) {
+      const typedError = error as ErrorWithMessage;
       console.error("Sell failed:", error);
       
       let errorMessage = "Unknown error occurred";
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.reason) {
-        errorMessage = error.reason;
+      if (typedError.message) {
+        errorMessage = typedError.message;
+      } else if (typedError.reason) {
+        errorMessage = typedError.reason;
       }
       
       toast.error(`Sell failed: ${errorMessage}`);
@@ -381,7 +398,7 @@ export default function TradePage({}: TradePageProps) {
 
   // ✅ Function to get TradingView symbol format
   const getTradingViewSymbol = (assetSymbol: string): string => {
-    const symbolMappings: { [key: string]: string } = {
+    const symbolMappings: SymbolMappings = {
       'BTC': 'BTCUSD',
       'BITCOIN': 'BTCUSD',
       'ETH': 'ETHUSD', 

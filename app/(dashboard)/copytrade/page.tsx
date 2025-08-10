@@ -63,6 +63,44 @@ interface DashboardStats {
   recent_trades_24h: number;
 }
 
+// Define types for API responses
+interface LeaderboardTrader {
+  rank: number;
+  trader_address: string;
+  total_trades: number;
+  profitable_trades: number;
+  win_rate: string;
+  total_pnl: number;
+  followers_count: number;
+}
+
+interface FollowingTrader {
+  trader_address: string;
+  allocation_percentage: number;
+  deposited_amount: number;
+  following_since: string;
+  performance: {
+    total_trades: number;
+    profitable_trades: number;
+    win_rate: string;
+    total_pnl: number;
+    followers_count: number;
+  };
+}
+
+interface CopyTrade {
+  id: string;
+  trader_address?: string;
+  follower_address?: string;
+  asset_symbol?: string;
+  asset?: string;
+  copied_amount?: string;
+  amount?: string;
+  created_at: string;
+  status: string;
+  pnl?: number;
+}
+
 const CopyTradingDashboard: React.FC = () => {
   // 🚀 Web3 Integration States
   const [account, setAccount] = useState("");
@@ -104,11 +142,35 @@ const CopyTradingDashboard: React.FC = () => {
     fetchDashboardStats();
   }, []);
 
+  // ✅ Fixed dependency issue by moving fetchUserData logic inside useEffect
   useEffect(() => {
+    const fetchData = async () => {
+      if (!account) return;
+
+      try {
+        const avaxBalance = await getUserAvaxBalance(account);
+        setUserAvaxBalance(avaxBalance);
+        
+        // ✅ Get vault balance
+        try {
+          const copyInfo = await getUserCopyInfo(account);
+          setVaultBalance(copyInfo.depositedBalance);
+        } catch (error) {
+          console.log('Vault info not available:', error);
+          setVaultBalance(0);
+        }
+        
+        await fetchFollowedTraders();
+        await fetchCopyHistory();
+      } catch (error: unknown) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
     if (isConnected && account) {
-      fetchUserData();
+      fetchData();
     }
-  }, [isConnected, account]);
+  }, [isConnected, account, vaultBalance]);
 
   // ✅ Connect to MetaMask
   const handleConnectWallet = async () => {
@@ -119,33 +181,10 @@ const CopyTradingDashboard: React.FC = () => {
       toast.success('Wallet connected successfully!');
       setAccount(account);
       setIsConnected(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss();
-      toast.error(error.message || 'Failed to connect wallet');
-    }
-  };
-
-  // ✅ Fetch user-specific data
-  const fetchUserData = async () => {
-    if (!account) return;
-
-    try {
-      const avaxBalance = await getUserAvaxBalance(account);
-      setUserAvaxBalance(avaxBalance);
-      
-      // ✅ Get vault balance
-      try {
-        const copyInfo = await getUserCopyInfo(account);
-        setVaultBalance(copyInfo.depositedBalance);
-      } catch (error) {
-        console.log('Vault info not available:', error);
-        setVaultBalance(0);
-      }
-      
-      await fetchFollowedTraders();
-      await fetchCopyHistory();
-    } catch (error: any) {
-      console.error("Error fetching user data:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
+      toast.error(errorMessage);
     }
   };
 
@@ -168,9 +207,18 @@ const CopyTradingDashboard: React.FC = () => {
       toast.success(`Deposit successful! TX: ${depositTxHash.substring(0, 10)}...`);
       
       // ✅ Refresh user data after successful deposit
-      await fetchUserData();
+      const avaxBalance = await getUserAvaxBalance(account);
+      setUserAvaxBalance(avaxBalance);
       
-    } catch (error: any) {
+      try {
+        const copyInfo = await getUserCopyInfo(account);
+        setVaultBalance(copyInfo.depositedBalance);
+      } catch (error) {
+        console.log('Vault info not available:', error);
+        setVaultBalance(0);
+      }
+      
+    } catch (error: unknown) {
       console.error("Deposit failed:", error);
       throw error;
     } finally {
@@ -189,12 +237,12 @@ const CopyTradingDashboard: React.FC = () => {
       
       if (response.success) {
         // ✅ Map the response data to match frontend interface
-        const mappedLeaderboard: TraderStats[] = response.leaderboard.map((trader: any) => ({
+        const mappedLeaderboard: TraderStats[] = response.leaderboard.map((trader: LeaderboardTrader) => ({
           rank: trader.rank,
           trader_address: trader.trader_address,
           total_trades: trader.total_trades,
           profitable_trades: trader.profitable_trades,
-          win_rate: trader.win_rate, // Already formatted as string from backend
+          win_rate: trader.win_rate,
           total_pnl: trader.total_pnl,
           followers_count: trader.followers_count
         }));
@@ -224,7 +272,7 @@ const fetchFollowedTraders = async () => {
       
       if (response.success) {
         // ✅ Map the response to match frontend interface
-        const mappedFollowing: FollowedTrader[] = response.following.map((trader: any) => ({
+        const mappedFollowing: FollowedTrader[] = response.following.map((trader: FollowingTrader) => ({
           trader_address: trader.trader_address,
           allocation_percentage: trader.allocation_percentage,
           // ✅ NEW: Use vaultBalance if deposited_amount is 0 or missing
@@ -259,11 +307,11 @@ const fetchFollowedTraders = async () => {
       
       if (response.success) {
         // ✅ Map the response to match frontend interface
-        const mappedHistory: CopyTradeHistory[] = response.copy_trades.map((trade: any) => ({
+        const mappedHistory: CopyTradeHistory[] = response.copy_trades.map((trade: CopyTrade) => ({
           id: trade.id,
-          trader_address: trade.trader_address || trade.follower_address, // Handle different field names
-          asset: trade.asset_symbol || trade.asset,
-          amount: trade.copied_amount || trade.amount,
+          trader_address: trade.trader_address || trade.follower_address || '',
+          asset: trade.asset_symbol || trade.asset || '',
+          amount: trade.copied_amount || trade.amount || '',
           created_at: trade.created_at,
           status: trade.status,
           pnl: trade.pnl
@@ -334,15 +382,28 @@ const fetchFollowedTraders = async () => {
         setFollowData({ allocation: 10, deposit: 0 });
         
         // ✅ Refresh all data
-        await fetchUserData();
+        const avaxBalance = await getUserAvaxBalance(account);
+        setUserAvaxBalance(avaxBalance);
+        
+        try {
+          const copyInfo = await getUserCopyInfo(account);
+          setVaultBalance(copyInfo.depositedBalance);
+        } catch (error) {
+          console.log('Vault info not available:', error);
+          setVaultBalance(0);
+        }
+        
+        await fetchFollowedTraders();
+        await fetchCopyHistory();
         await fetchDashboardStats();
       } else {
         throw new Error(apiResult.error || "Database update failed");
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Follow trader failed:", error);
-      toast.error(`Failed to follow trader: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to follow trader: ${errorMessage}`);
       setTransactionStatus("");
     } finally {
       setLoading(false);
@@ -376,9 +437,10 @@ const fetchFollowedTraders = async () => {
         throw new Error(apiResult.error || "Database update failed");
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Unfollow trader failed:", error);
-      toast.error(`Failed to unfollow trader: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to unfollow trader: ${errorMessage}`);
     } finally {
       setLoading(false);
       setTransactionStatus("");
@@ -523,7 +585,7 @@ const fetchFollowedTraders = async () => {
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
+                onClick={() => setActiveTab(tab.key as 'leaderboard' | 'following' | 'history')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.key
                     ? 'border-black text-black'
@@ -677,7 +739,7 @@ const fetchFollowedTraders = async () => {
               </div>
             ) : followedTraders.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-gray-600 mb-4">You're not following any traders yet</p>
+                <p className="text-gray-600 mb-4">You&apos;re not following any traders yet</p>
                 <button 
                   onClick={() => setActiveTab('leaderboard')}
                   className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"

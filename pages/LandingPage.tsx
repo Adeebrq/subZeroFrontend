@@ -1,6 +1,7 @@
 "use client";
 import { MacbookScroll } from "../components/ui/macbook-scroll";
 import Head from "next/head";
+import Image from "next/image";
 import { useWallet } from '../contexts/walletContext';
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -57,7 +58,7 @@ const Navigation = () => {
       return (
         <div className=" cursor-pointer flex items-center gap-2">
           <span>Install MetaMask</span>
-        <img src="/metaMaskLogo.png" alt="MetaMask" className="w-5 h-5" />
+          <Image src="/metaMaskLogo.png" alt="MetaMask" width={20} height={20} />
         </div>
       );
     }
@@ -68,12 +69,11 @@ const Navigation = () => {
     return (
       <div className=" cursor-pointer flex items-center justify-center gap-2">
         <span>Connect</span>
-        <img src="/metaMaskLogo.png" alt="MetaMask" className="w-5 h-5" />
+        <Image src="/metaMaskLogo.png" alt="MetaMask" width={20} height={20} />
       </div>
     );
   };
   
-
   const getButtonStyle = () => {
     if (isConnected && isOnCorrectNetwork) {
       return "bg-green-500 text-white hover:bg-green-600";
@@ -147,7 +147,6 @@ const Navigation = () => {
   );
 };
 
-
 const HeroContent = () => (
   <div className="flex-1">
     <h1 className="text-white text-6xl font-extrabold leading-tight mb-5 animate-fade-in-up">
@@ -160,7 +159,7 @@ const HeroContent = () => (
       </span>
     </h1>
     <p className="text-white text-lg leading-relaxed mb-10 opacity-90 animate-fade-in-up animation-delay-150">
-    Watch your wealth multiply while you sleep, master decentralized microtrading, copy proven strategies, and compound returns on Avalanche's lightning network.
+    {`Watch your wealth multiply while you sleep, master decentralized microtrading, copy proven strategies, and compound returns on Avalanche's lightning network.`}
     </p>
     <a
       href="#get-started"
@@ -181,13 +180,31 @@ const HeroSection = () => (
       <div className="w-auto p-0">
         <div className="flex flex-col gap-3">
           <div className="w-[356px] h-[249px] bg-white rounded-lg animate-fade-in-up animation-delay-300">
-            <img src="/1.svg" alt="Card 1" className="w-full h-full object-cover" />
+            <Image 
+              src="/1.svg" 
+              alt="Card 1" 
+              width={356} 
+              height={249} 
+              className="w-full h-full object-cover" 
+            />
           </div>
           <div className="w-[350px] h-[200px] animate-fade-in-up animation-delay-600">
-            <img src="/4.svg" alt="Card 4" className="w-full h-full object-cover" />
+            <Image 
+              src="/4.svg" 
+              alt="Card 4" 
+              width={350} 
+              height={200} 
+              className="w-full h-full object-cover" 
+            />
           </div>
           <div className="w-[380px] h-[169px] animate-fade-in-up animation-delay-900">
-            <img src="/3.svg" alt="Card 3" className="w-full h-full object-cover -ml-3" />
+            <Image 
+              src="/3.svg" 
+              alt="Card 3" 
+              width={380} 
+              height={169} 
+              className="w-full h-full object-cover -ml-3" 
+            />
           </div>
         </div>
       </div>
