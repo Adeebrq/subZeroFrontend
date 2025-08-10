@@ -1,4 +1,3 @@
-// WalletNavigation.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -7,13 +6,14 @@ import { useWallet } from '../contexts/walletContext';
 
 const NAV_ITEMS = [
   { href: "#features", label: "Features" },
-  { href: "#workings", label: "workings" },
+  { href: "#workings", label: "Workings" },
 ];
 
 const WalletNavigation = () => {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   
+  // ✅ FIXED: Unconditional hook usage
   const { 
     isConnected, 
     isConnecting, 
@@ -42,8 +42,8 @@ const WalletNavigation = () => {
     } else {
       try {
         await connect();
-      } catch (error) {
-        console.error('Connection failed:', error);
+      } catch (connectError) {
+        console.error('Connection failed:', connectError);
       }
     }
   };
