@@ -20,9 +20,11 @@ import {
   type TransactionRequest 
 } from '../../../../lib/web3';
 
-// ✅ Fixed: Removed unused AssetInvestmentResponse import and defined proper interface
+// ✅ Fixed: Proper interface instead of empty interface
 interface TradePageProps {
-  // Add any props if needed in the future
+  params?: {
+    symbol: string;
+  };
 }
 
 interface AssetData {
@@ -82,10 +84,10 @@ export default function TradePage({}: TradePageProps) {
       const contract = getReadOnlyContract();
       const bytes32Symbol = getAssetBytes32(assetData.symbol);
       
-      const assetPnL = await contract.getUserAssetPnL(account, bytes32Symbol);
+      // ✅ Fixed: Remove unused assetPnL variable
+      await contract.getUserAssetPnL(account, bytes32Symbol);
       const totalValue = await contract.getUserTotalValue(account);
       
-      // ✅ Fixed: Removed unused pnlAvax variable
       const totalInvested = parseFloat(ethers.formatEther(totalValue[0]));
       const totalPnL = parseFloat(ethers.formatEther(totalValue[1]));
       
@@ -154,7 +156,7 @@ export default function TradePage({}: TradePageProps) {
       console.log(`User has ${investmentAvax} AVAX invested in ${assetData.symbol}`);
 
     } catch (error) {
-      const typedError = error as ErrorWithMessage;
+      // ✅ Fixed: Remove unused typedError variable
       console.error("Error fetching user holdings:", error);
       toast.error('Failed to refresh balances');
       setUserHoldings(prev => ({ ...prev, asset: 0 }));
