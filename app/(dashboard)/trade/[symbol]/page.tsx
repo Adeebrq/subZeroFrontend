@@ -20,7 +20,7 @@ import {
   type TransactionRequest 
 } from '../../../../lib/web3';
 
-// ✅ Fixed: Updated interface to match Next.js 15 PageProps constraint
+// ✅ FIXED: Simplified interface for Next.js 15 - no Promise wrapping needed for client components
 interface TradePageProps {
   params: Promise<{ symbol: string }>;
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -51,22 +51,49 @@ interface ErrorWithMessage {
   reason?: string;
 }
 
-export default async function TradePage({ params, searchParams }: TradePageProps) {
-  // ✅ Await the params and searchParams as required by Next.js 15
-  const resolvedParams = await params;
-  const resolvedSearchParams = await searchParams;
+// ✅ FIXED: Removed async from Client Component
+export default function TradePage({ params, searchParams }: TradePageProps) {
+  // ✅ FIXED: Handle async params in client component using state
+  const [resolvedParams, setResolvedParams] = useState<{ symbol: string } | null>(null);
+  const [resolvedSearchParams, setResolvedSearchParams] = useState<{ [key: string]: string | string[] | undefined } | null>(null);
   
-  // Client-side component wrapper
+  useEffect(() => {
+    // ✅ Resolve the async params
+    const resolveParams = async () => {
+      try {
+        const [p, sp] = await Promise.all([params, searchParams || Promise.resolve({})]);
+        setResolvedParams(p);
+        setResolvedSearchParams(sp);
+      } catch (error) {
+        console.error('Error resolving params:', error);
+        setResolvedParams(null);
+        setResolvedSearchParams(null);
+      }
+    };
+    
+    resolveParams();
+  }, [params, searchParams]);
+  
+  // ✅ Show loading while params are being resolved
+  if (!resolvedParams || resolvedSearchParams === null) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  // ✅ Pass resolved params to client component
   return <TradePageClient params={resolvedParams} searchParams={resolvedSearchParams} />;
 }
 
-// ✅ Separate client component to handle the interactive features
+// ✅ Main client component with all the interactive features
 function TradePageClient({ 
   params, 
   searchParams 
 }: { 
   params: { symbol: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const [assetData, setAssetData] = useState<AssetData | null>(null);
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
@@ -129,10 +156,14 @@ function TradePageClient({
   // ✅ Initialize MetaMask connection on component mount
   useEffect(() => {
     const initializeConnection = async () => {
-      const { isConnected, account } = await checkMetaMaskConnection();
-      if (isConnected && account) {
-        setAccount(account);
-        setIsConnected(true);
+      try {
+        const { isConnected, account } = await checkMetaMaskConnection();
+        if (isConnected && account) {
+          setAccount(account);
+          setIsConnected(true);
+        }
+      } catch (error) {
+        console.error('Error initializing MetaMask connection:', error);
       }
     };
     
@@ -464,8 +495,6 @@ function TradePageClient({
   return (
     <div className="min-h-screen overflow-y-auto">
       <div className="p-6 max-w-7xl mx-auto"> 
-        {/* Rest of your JSX remains the same... */}
-        {/* I'll keep the JSX structure the same as your original code */}
         {/* Header Section - Added card-bg */}
         <div className="flex items-center gap-4 mb-8 card-bg rounded-lg border border-gray-200 p-6">
           <Image 
