@@ -72,6 +72,13 @@ interface ApiTraderResponse {
   };
 }
 
+// ✅ Define the API response interface to fix the TypeScript error
+interface FollowingApiResponse {
+  success: boolean;
+  following: ApiTraderResponse[];
+  message?: string;
+}
+
 export default function Dashboard() {
   const { account, balanceFormatted, isOnCorrectNetwork } = useWallet();
   const router = useRouter();
@@ -126,7 +133,7 @@ export default function Dashboard() {
     }
   }, [account]);
 
-  // ✅ Wrap fetchFollowedTraders in useCallback to prevent dependency warnings
+  // ✅ Fixed fetchFollowedTraders with proper typing
   const fetchFollowedTraders = useCallback(async (walletAccount?: string) => {
     const accountToUse = walletAccount || account;
     if (!accountToUse) return;
@@ -135,9 +142,9 @@ export default function Dashboard() {
       setLoading(true);
       const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/following/${accountToUse}`, {
         method: 'GET'
-      });
+      }) as FollowingApiResponse; // ✅ Type assertion to fix the error
       
-      if (response.success) {
+      if (response.success && response.following) {
         // ✅ Replace 'any' with proper type
         const mappedFollowing: FollowedTrader[] = response.following.map((trader: ApiTraderResponse) => ({
           trader_address: trader.trader_address,
@@ -157,6 +164,7 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Failed to fetch followed traders:', error);
+      setFollowedTraders([]); // ✅ Set empty array on error
     } finally {
       setLoading(false);
     }

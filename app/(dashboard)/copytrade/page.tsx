@@ -30,6 +30,7 @@ interface TraderStats {
   win_rate: string;
   total_pnl: number;
   followers_count: number;
+  user_type?: string;
 }
 
 interface FollowedTrader {
@@ -48,9 +49,12 @@ interface FollowedTrader {
 
 interface CopyTradeHistory {
   id: string;
-  trader_address: string;
-  asset: string;
-  amount: string;
+  trader_address: string; // ✅ FIXED: Made required instead of optional
+  follower_address?: string;
+  asset_symbol?: string;
+  asset?: string;
+  copied_amount?: string;
+  amount?: string;
   created_at: string;
   status: string;
   pnl?: number;
@@ -61,44 +65,100 @@ interface DashboardStats {
   active_relationships: number;
   total_copied_trades: number;
   recent_trades_24h: number;
+  top_traders?: Array<{
+    trader_address: string;
+    total_trades: number;
+    total_pnl: number;
+    followers_count: number;
+  }>;
 }
 
-// Define types for API responses
-interface LeaderboardTrader {
-  rank: number;
-  trader_address: string;
-  total_trades: number;
-  profitable_trades: number;
-  win_rate: string;
-  total_pnl: number;
-  followers_count: number;
+// ✅ FIXED: Define proper API response types that extend base ApiResponse
+interface BaseApiResponse {
+  success: boolean;
+  error?: string;
 }
 
-interface FollowingTrader {
-  trader_address: string;
-  allocation_percentage: number;
-  deposited_amount: number;
-  following_since: string;
-  performance: {
+interface LeaderboardResponse extends BaseApiResponse {
+  leaderboard: Array<{
+    rank: number;
+    trader_address: string;
     total_trades: number;
     profitable_trades: number;
     win_rate: string;
     total_pnl: number;
     followers_count: number;
+    user_type?: string;
+  }>;
+  total_traders: number;
+  breakdown?: {
+    active_traders: number;
+    copy_traders: number;
+    new_users: number;
   };
 }
 
-interface CopyTrade {
-  id: string;
-  trader_address?: string;
-  follower_address?: string;
-  asset_symbol?: string;
-  asset?: string;
-  copied_amount?: string;
-  amount?: string;
-  created_at: string;
-  status: string;
-  pnl?: number;
+interface FollowingResponse extends BaseApiResponse {
+  following: Array<{
+    trader_address: string;
+    allocation_percentage: number;
+    deposited_amount?: number;
+    following_since: string;
+    performance: {
+      total_trades: number;
+      profitable_trades: number;
+      win_rate: string;
+      total_pnl: number;
+      followers_count: number;
+    };
+  }>;
+}
+
+interface CopyHistoryResponse extends BaseApiResponse {
+  copy_trades: Array<{
+    id: string;
+    trader_address?: string;
+    follower_address?: string;
+    asset_symbol?: string;
+    asset?: string;
+    copied_amount?: string;
+    amount?: string;
+    created_at: string;
+    status: string;
+    pnl?: number;
+  }>;
+  pagination?: {
+    limit: number;
+    offset: number;
+    total: number | null;
+  };
+}
+
+interface StatsResponse extends BaseApiResponse {
+  statistics: {
+    total_relationships: number;
+    active_relationships: number;
+    total_copied_trades: number;
+    recent_trades_24h: number;
+    top_traders?: Array<{
+      trader_address: string;
+      total_trades: number;
+      total_pnl: number;
+      followers_count: number;
+    }>;
+  };
+}
+
+interface SyncResponse extends BaseApiResponse {
+  message: string;
+  stats: {
+    total_traders_found: number;
+    processed_traders: number;
+    skipped_traders: number;
+  };
+  details: {
+    calculation_includes: string[];
+  };
 }
 
 const CopyTradingDashboard: React.FC = () => {
@@ -120,7 +180,6 @@ const CopyTradingDashboard: React.FC = () => {
   // Modal States
   const [followModal, setFollowModal] = useState<{ show: boolean; trader: string }>({ show: false, trader: '' });
   const [followData, setFollowData] = useState({ allocation: 10, deposit: 0 });
-  // ✅ NEW: Deposit Modal State
   const [depositModal, setDepositModal] = useState<boolean>(false);
 
   // ✅ Initialize MetaMask connection on component mount
@@ -227,24 +286,25 @@ const CopyTradingDashboard: React.FC = () => {
     }
   };
 
-  // ✅ Updated leaderboard fetch to handle your actual API response structure
+  // ✅ FIXED: Updated leaderboard fetch with proper type casting
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
       const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/leaderboard?limit=50`, {
         method: 'GET'
-      });
+      }) as LeaderboardResponse;
       
-      if (response.success) {
+      if (response.success && response.leaderboard) {
         // ✅ Map the response data to match frontend interface
-        const mappedLeaderboard: TraderStats[] = response.leaderboard.map((trader: LeaderboardTrader) => ({
+        const mappedLeaderboard: TraderStats[] = response.leaderboard.map((trader) => ({
           rank: trader.rank,
           trader_address: trader.trader_address,
           total_trades: trader.total_trades,
           profitable_trades: trader.profitable_trades,
           win_rate: trader.win_rate,
           total_pnl: trader.total_pnl,
-          followers_count: trader.followers_count
+          followers_count: trader.followers_count,
+          user_type: trader.user_type
         }));
         
         setLeaderboard(mappedLeaderboard);
@@ -261,24 +321,24 @@ const CopyTradingDashboard: React.FC = () => {
     }
   };
 
- // ✅ Updated to handle correct API response structure with vaultBalance fallback
-const fetchFollowedTraders = async () => {
+  // ✅ FIXED: Updated to handle correct API response structure with proper type casting
+  const fetchFollowedTraders = async () => {
     if (!account) return;
     
     try {
       const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/following/${account}`, {
         method: 'GET'
-      });
+      }) as FollowingResponse;
       
-      if (response.success) {
+      if (response.success && response.following) {
         // ✅ Map the response to match frontend interface
-        const mappedFollowing: FollowedTrader[] = response.following.map((trader: FollowingTrader) => ({
+        const mappedFollowing: FollowedTrader[] = response.following.map((trader) => ({
           trader_address: trader.trader_address,
           allocation_percentage: trader.allocation_percentage,
-          // ✅ NEW: Use vaultBalance if deposited_amount is 0 or missing
+          // ✅ Use vaultBalance if deposited_amount is 0 or missing
           deposited_amount: trader.deposited_amount && trader.deposited_amount > 0 
             ? trader.deposited_amount 
-            : vaultBalance, // Use vault balance as fallback
+            : vaultBalance,
           following_since: trader.following_since,
           performance: {
             total_trades: trader.performance.total_trades,
@@ -296,20 +356,20 @@ const fetchFollowedTraders = async () => {
     }
   };
   
-  // ✅ Updated to handle correct API response structure
+  // ✅ FIXED: Updated to handle correct API response structure with proper type casting
   const fetchCopyHistory = async () => {
     if (!account) return;
     
     try {
       const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/history/${account}`, {
         method: 'GET'
-      });
+      }) as CopyHistoryResponse;
       
-      if (response.success) {
-        // ✅ Map the response to match frontend interface
-        const mappedHistory: CopyTradeHistory[] = response.copy_trades.map((trade: CopyTrade) => ({
+      if (response.success && response.copy_trades) {
+        // ✅ FIXED: Handle undefined trader_address properly
+        const mappedHistory: CopyTradeHistory[] = response.copy_trades.map((trade) => ({
           id: trade.id,
-          trader_address: trade.trader_address || trade.follower_address || '',
+          trader_address: trade.trader_address || trade.follower_address || 'Unknown', // ✅ Provide fallback
           asset: trade.asset_symbol || trade.asset || '',
           amount: trade.copied_amount || trade.amount || '',
           created_at: trade.created_at,
@@ -324,13 +384,14 @@ const fetchFollowedTraders = async () => {
     }
   };
 
+  // ✅ FIXED: Updated dashboard stats fetch with proper type casting
   const fetchDashboardStats = async () => {
     try {
       const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/stats`, {
         method: 'GET'
-      });
+      }) as StatsResponse;
       
-      if (response.success) {
+      if (response.success && response.statistics) {
         setDashboardStats(response.statistics);
       }
     } catch (error) {
@@ -447,7 +508,7 @@ const fetchFollowedTraders = async () => {
     }
   };
 
-  // ✅ Add sync function for testing/admin use
+  // ✅ FIXED: Add sync function with proper type casting
   const syncTraderPerformance = async () => {
     try {
       setLoading(true);
@@ -455,11 +516,11 @@ const fetchFollowedTraders = async () => {
       
       const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/sync-trader-performance`, {
         method: 'POST'
-      });
+      }) as SyncResponse;
       
       toast.dismiss(loadingToast);
       
-      if (response.success) {
+      if (response.success && response.stats) {
         toast.success(`Synced ${response.stats.processed_traders} traders!`);
         await fetchLeaderboard(); // Refresh leaderboard after sync
       } else {
@@ -551,7 +612,6 @@ const fetchFollowedTraders = async () => {
               <div className="text-sm text-gray-600">Copy Trades</div>
             </div>
           </div>
-
         </div>
       )}
 
@@ -660,7 +720,12 @@ const fetchFollowedTraders = async () => {
                       <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-bold">
                         #{trader.rank}
                       </div>
-                      <span className="font-mono text-sm">{formatAddress(trader.trader_address)}</span>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-sm">{formatAddress(trader.trader_address)}</span>
+                        {trader.user_type && (
+                          <span className="text-xs text-gray-500">{trader.user_type}</span>
+                        )}
+                      </div>
                     </div>
                     {isConnected && (
                       <>

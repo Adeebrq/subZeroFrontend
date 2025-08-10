@@ -20,11 +20,10 @@ import {
   type TransactionRequest 
 } from '../../../../lib/web3';
 
-// ✅ Fixed: Proper interface instead of empty interface
+// ✅ Fixed: Updated interface to match Next.js 15 PageProps constraint
 interface TradePageProps {
-  params?: {
-    symbol: string;
-  };
+  params: Promise<{ symbol: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 interface AssetData {
@@ -52,9 +51,23 @@ interface ErrorWithMessage {
   reason?: string;
 }
 
-export default function TradePage({}: TradePageProps) {
-  const params = useParams();
-  const searchParams = useSearchParams();
+export default async function TradePage({ params, searchParams }: TradePageProps) {
+  // ✅ Await the params and searchParams as required by Next.js 15
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+  
+  // Client-side component wrapper
+  return <TradePageClient params={resolvedParams} searchParams={resolvedSearchParams} />;
+}
+
+// ✅ Separate client component to handle the interactive features
+function TradePageClient({ 
+  params, 
+  searchParams 
+}: { 
+  params: { symbol: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
   const [assetData, setAssetData] = useState<AssetData | null>(null);
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [avaxAmount, setAvaxAmount] = useState('');
@@ -84,7 +97,6 @@ export default function TradePage({}: TradePageProps) {
       const contract = getReadOnlyContract();
       const bytes32Symbol = getAssetBytes32(assetData.symbol);
       
-      // ✅ Fixed: Remove unused assetPnL variable
       await contract.getUserAssetPnL(account, bytes32Symbol);
       const totalValue = await contract.getUserTotalValue(account);
       
@@ -112,7 +124,7 @@ export default function TradePage({}: TradePageProps) {
     }
   }, [account, assetData]);
 
-  const symbol = params?.symbol as string;
+  const symbol = params?.symbol;
 
   // ✅ Initialize MetaMask connection on component mount
   useEffect(() => {
@@ -156,7 +168,6 @@ export default function TradePage({}: TradePageProps) {
       console.log(`User has ${investmentAvax} AVAX invested in ${assetData.symbol}`);
 
     } catch (error) {
-      // ✅ Fixed: Remove unused typedError variable
       console.error("Error fetching user holdings:", error);
       toast.error('Failed to refresh balances');
       setUserHoldings(prev => ({ ...prev, asset: 0 }));
@@ -170,16 +181,21 @@ export default function TradePage({}: TradePageProps) {
     }
   }, [isConnected, assetData, fetchUserHoldings]);
 
-  // ✅ Get asset data from URL search params
+  // ✅ Get asset data from resolved search params
   useEffect(() => {
     if (searchParams && symbol) {
+      const getSearchParam = (key: string): string => {
+        const value = searchParams[key];
+        return Array.isArray(value) ? value[0] || '' : value || '';
+      };
+
       const data: AssetData = {
         symbol: symbol.toUpperCase(),
-        name: searchParams.get('name') || '',
-        price: searchParams.get('price') || '',
-        category: searchParams.get('category') || '',
-        status: searchParams.get('status') || '',
-        iconPath: searchParams.get('iconPath') || ''
+        name: getSearchParam('name'),
+        price: getSearchParam('price'),
+        category: getSearchParam('category'),
+        status: getSearchParam('status'),
+        iconPath: getSearchParam('iconPath')
       };
       setAssetData(data);
     }
@@ -448,6 +464,8 @@ export default function TradePage({}: TradePageProps) {
   return (
     <div className="min-h-screen overflow-y-auto">
       <div className="p-6 max-w-7xl mx-auto"> 
+        {/* Rest of your JSX remains the same... */}
+        {/* I'll keep the JSX structure the same as your original code */}
         {/* Header Section - Added card-bg */}
         <div className="flex items-center gap-4 mb-8 card-bg rounded-lg border border-gray-200 p-6">
           <Image 
