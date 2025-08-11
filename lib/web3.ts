@@ -614,8 +614,16 @@ export const unfollowTrader = async (traderAddress: string): Promise<string> => 
 
 // ✅ API functions for copy trading
 export const followTraderAPI = async (traderAddress: string, percentage: number): Promise<{ success: boolean; message?: string }> => {
+  // First check if user is connected to get their address
+  const connectionStatus = await checkMetaMaskConnection();
+  if (!connectionStatus.isConnected || !connectionStatus.account) {
+    throw new Error('MetaMask not connected. Please connect your wallet first.');
+  }
+
+  const followerAddress = connectionStatus.account;
+
   // Check cache first
-  const cacheKey = `follow_${traderAddress}_${percentage}`;
+  const cacheKey = `follow_${traderAddress}_${percentage}_${followerAddress}`;
   const cached = cache.get(cacheKey);
   if (cached) {
     return cached;
@@ -625,8 +633,10 @@ export const followTraderAPI = async (traderAddress: string, percentage: number)
     const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/follow`, {
       method: 'POST',
       body: JSON.stringify({
+        follower_address: followerAddress, // ✅ Added missing follower_address
         trader_address: traderAddress,
-        percentage: percentage
+        allocation_percentage: percentage, // ✅ Updated to match API expectation
+        percentage: percentage // Keep both for backward compatibility
       })
     });
     const result = { success: true, message: response.message };
@@ -641,6 +651,7 @@ export const followTraderAPI = async (traderAddress: string, percentage: number)
     return result;
   }
 };
+
 
 export const unfollowTraderAPI = async (traderAddress: string): Promise<{ success: boolean; message?: string }> => {
   // Check cache first
