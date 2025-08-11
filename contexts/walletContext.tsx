@@ -1,7 +1,7 @@
 // contexts/WalletContext.tsx
 "use client";
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ethers, BrowserProvider, Signer } from 'ethers';
 
 // Avalanche Fuji Testnet configuration
@@ -68,9 +68,9 @@ interface UseWalletReturn extends WalletState {
 declare global {
   interface Window {
     ethereum?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-      on: (event: string, callback: (...args: any[]) => void) => void;
-      removeListener: (event: string, callback: (...args: any[]) => void) => void;
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on: (event: string, callback: (...args: unknown[]) => void) => void;
+      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
       isMetaMask?: boolean;
     };
   }
@@ -116,13 +116,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Get balance for connected account
-  const refreshBalance = useCallback(async () => {
-    if (!state.account || !state.provider) return;
-
+  const refreshBalance = useCallback(async (account: string, provider: BrowserProvider) => {
+    if (!account || !provider) return;
     try {
-      const balance = await state.provider.getBalance(state.account);
+      const balance = await provider.getBalance(account);
       const balanceFormatted = ethers.formatEther(balance);
-      
       updateState({ 
         balance: balance.toString(),
         balanceFormatted: parseFloat(balanceFormatted).toFixed(4)
@@ -130,7 +128,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Error fetching balance:', error);
     }
-  }, [state.account, state.provider, updateState]);
+  }, [updateState]);
 
   // Add Avalanche testnet to MetaMask
   const addAvaxTestnet = useCallback(async () => {
@@ -184,7 +182,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       // Request account access
       const accounts = await window.ethereum!.request({
         method: 'eth_requestAccounts',
-      });
+      }) as string[];
 
       if (accounts.length === 0) {
         throw new Error('No accounts found. Please connect your MetaMask wallet.');
@@ -288,10 +286,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         txParams.maxPriorityFeePerGas = ethers.parseUnits(params.maxPriorityFeePerGas, 'gwei');
       }
 
+      console.log('[Wallet] Sending transaction', { txParams });
       const tx = await state.signer.sendTransaction(txParams);
+      console.log('[Wallet] Transaction sent', { hash: tx.hash });
       return tx;
     } catch (error: any) {
-      console.error('Transaction failed:', error);
+      console.error('[Wallet] Transaction failed:', error);
       throw new Error(`Transaction failed: ${error.message}`);
     }
   }, [state.signer, isOnCorrectNetwork]);
@@ -303,10 +303,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
+      console.log('[Wallet] Signing message');
       const signature = await state.signer.signMessage(message);
+      console.log('[Wallet] Message signed');
       return signature;
     } catch (error: any) {
-      console.error('Message signing failed:', error);
+      console.error('[Wallet] Message signing failed:', error);
       throw new Error(`Message signing failed: ${error.message}`);
     }
   }, [state.signer]);
@@ -319,19 +321,27 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const contract = new ethers.Contract(params.contractAddress, params.abi, state.signer);
-      
       const txParams: any = {};
       if (params.value) {
         txParams.value = ethers.parseEther(params.value);
       }
 
+      console.log('[Contract] Calling method', { address: params.contractAddress, method: params.method, hasParams: Boolean(params.params?.length), txParams });
+      let result;
       if (params.params && params.params.length > 0) {
-        return await contract[params.method](...params.params, txParams);
+        result = await contract[params.method](...params.params, txParams);
       } else {
-        return await contract[params.method](txParams);
+        result = await contract[params.method](txParams);
       }
+      // If it's a write, result may be a transaction response with a hash
+      if (result?.hash) {
+        console.log('[Contract] Transaction sent', { hash: result.hash });
+      } else {
+        console.log('[Contract] Read call completed');
+      }
+      return result;
     } catch (error: any) {
-      console.error('Contract call failed:', error);
+      console.error('[Contract] Call failed:', error);
       throw new Error(`Contract call failed: ${error.message}`);
     }
   }, [state.signer]);
@@ -365,10 +375,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         txParams.from = state.account;
       }
 
+      console.log('[Wallet] Estimating gas', { txParams });
       const gasEstimate = await state.provider.estimateGas(txParams);
+      console.log('[Wallet] Gas estimated', { gasEstimate: gasEstimate.toString() });
       return gasEstimate;
     } catch (error: any) {
-      console.error('Gas estimation failed:', error);
+      console.error('[Wallet] Gas estimation failed:', error);
       throw new Error(`Gas estimation failed: ${error.message}`);
     }
   }, [state.provider, state.account]);
@@ -404,11 +416,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [state.provider]);
 
   // Handle account changes
-  const handleAccountsChanged = useCallback((accounts: string[]) => {
-    if (accounts.length === 0) {
+  const handleAccountsChanged = useCallback((accounts: unknown) => {
+    const accountArray = accounts as string[];
+    if (accountArray.length === 0) {
       disconnect();
-    } else if (accounts[0] !== state.account) {
-      updateState({ account: accounts[0] });
+    } else if (accountArray[0] !== state.account) {
+      updateState({ account: accountArray[0] });
       // Re-initialize provider and signer
       initializeProvider().then(providerData => {
         if (providerData) {
@@ -422,8 +435,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [disconnect, updateState, initializeProvider, state.account]);
 
   // Handle chain changes
-  const handleChainChanged = useCallback((chainId: string) => {
-    const chainIdDecimal = parseInt(chainId, 16);
+  const handleChainChanged = useCallback((chainId: unknown) => {
+    const chainIdStr = chainId as string;
+    const chainIdDecimal = parseInt(chainIdStr, 16);
     updateState({ chainId: chainIdDecimal });
     
     // Re-initialize provider when chain changes
@@ -458,17 +472,18 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   // Refresh balance when account or chain changes
   useEffect(() => {
     if (state.account && isOnCorrectNetwork && state.provider) {
-      refreshBalance();
+      refreshBalance(state.account, state.provider);
     }
   }, [state.account, isOnCorrectNetwork, state.provider, refreshBalance]);
 
-  const value: UseWalletReturn = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value = useMemo<UseWalletReturn>(() => ({
     ...state,
     connect,
     disconnect,
     switchToAvaxTestnet,
     addAvaxTestnet,
-    refreshBalance,
+    refreshBalance: () => state.account && state.provider ? refreshBalance(state.account, state.provider) : Promise.resolve(),
     sendTransaction,
     signMessage,
     callContract,
@@ -478,7 +493,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     waitForTransaction,
     isMetaMaskInstalled,
     isOnCorrectNetwork,
-  };
+  }), [state, connect, disconnect, switchToAvaxTestnet, addAvaxTestnet, refreshBalance, sendTransaction, signMessage, callContract, getContract, estimateGas, getGasPrice, waitForTransaction, isMetaMaskInstalled, isOnCorrectNetwork]);
 
   return (
     <WalletContext.Provider value={value}>

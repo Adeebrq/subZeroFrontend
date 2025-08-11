@@ -68,9 +68,9 @@ interface UseWalletReturn extends WalletState {
 declare global {
   interface Window {
     ethereum?: {
-      request: (args: { method: string; params?: any[] }) => Promise<any>;
-      on: (event: string, callback: (...args: any[]) => void) => void;
-      removeListener: (event: string, callback: (...args: any[]) => void) => void;
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on: (event: string, callback: (...args: unknown[]) => void) => void;
+      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
       isMetaMask?: boolean;
     };
   }
@@ -184,7 +184,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       // Request account access
       const accounts = await window.ethereum!.request({
         method: 'eth_requestAccounts',
-      });
+      }) as string[];
 
       if (accounts.length === 0) {
         throw new Error('No accounts found. Please connect your MetaMask wallet.');
@@ -404,11 +404,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [state.provider]);
 
   // Handle account changes
-  const handleAccountsChanged = useCallback((accounts: string[]) => {
-    if (accounts.length === 0) {
+  const handleAccountsChanged = useCallback((accounts: unknown) => {
+    const accountArray = accounts as string[];
+    if (accountArray.length === 0) {
       disconnect();
-    } else if (accounts[0] !== state.account) {
-      updateState({ account: accounts[0] });
+    } else if (accountArray[0] !== state.account) {
+      updateState({ account: accountArray[0] });
       // Re-initialize provider and signer
       initializeProvider().then(providerData => {
         if (providerData) {
@@ -422,8 +423,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [disconnect, updateState, initializeProvider, state.account]);
 
   // Handle chain changes
-  const handleChainChanged = useCallback((chainId: string) => {
-    const chainIdDecimal = parseInt(chainId, 16);
+  const handleChainChanged = useCallback((chainId: unknown) => {
+    const chainIdStr = chainId as string;
+    const chainIdDecimal = parseInt(chainIdStr, 16);
     updateState({ chainId: chainIdDecimal });
     
     // Re-initialize provider when chain changes

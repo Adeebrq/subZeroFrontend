@@ -16,8 +16,7 @@ import {
   getUserAvaxBalance,
   getAssetBytes32,
   apiCall,
-  API_CONFIG,
-  type TransactionRequest 
+  API_CONFIG
 } from '../../../../lib/web3';
 
 // ✅ FIXED: Simplified interface for Next.js 15 - no Promise wrapping needed for client components
@@ -49,6 +48,13 @@ interface SymbolMappings {
 interface ErrorWithMessage {
   message?: string;
   reason?: string;
+}
+
+interface TransactionRequestBody {
+  user_address: string;
+  asset_symbol: string;
+  sell_amount_avax?: number;
+  tx_hash: string;
 }
 
 // ✅ FIXED: Removed async from Client Component
@@ -121,7 +127,7 @@ function TradePageClient({
     if (!account || !assetData) return;
 
     try {
-      const contract = getReadOnlyContract();
+      const contract = await getReadOnlyContract();
       const bytes32Symbol = getAssetBytes32(assetData.symbol);
       
       await contract.getUserAssetPnL(account, bytes32Symbol);
@@ -180,7 +186,7 @@ function TradePageClient({
       const avaxBalance = await getUserAvaxBalance(account);
       setUserHoldings(prev => ({ ...prev, avax: avaxBalance }));
 
-      const contract = getReadOnlyContract();
+      const contract = await getReadOnlyContract();
       const bytes32Symbol = getAssetBytes32(assetData.symbol);
       
       const investmentWei = await contract.getUserAssetInvestment(account, bytes32Symbol);
@@ -292,7 +298,7 @@ function TradePageClient({
       
       setTransactionStatus("Recording transaction in backend...");
       
-      const requestData: TransactionRequest = {
+      const requestData = {
         user_address: account,
         asset_symbol: assetData!.symbol,
         amount_avax: amount,
@@ -368,7 +374,7 @@ function TradePageClient({
 
       let tx;
       let endpoint;
-      let requestBody: TransactionRequest;
+      let requestBody: TransactionRequestBody;
 
       if (isPartialSell) {
         setTransactionStatus("Executing partial sell...");

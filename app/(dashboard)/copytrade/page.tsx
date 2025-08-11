@@ -17,6 +17,7 @@ import {
   unfollowTrader as unfollowTraderContract,
   followTraderAPI,
   unfollowTraderAPI,
+  cache,
 } from '../../../lib/web3';
 
 // Import the new Deposit Modal component
@@ -229,7 +230,7 @@ const CopyTradingDashboard: React.FC = () => {
     if (isConnected && account) {
       fetchData();
     }
-  }, [isConnected, account, vaultBalance]);
+  }, [isConnected, account]); // Removed vaultBalance dependency to prevent infinite loops
 
   // ✅ Connect to MetaMask
   const handleConnectWallet = async () => {
@@ -360,7 +361,19 @@ const CopyTradingDashboard: React.FC = () => {
   const fetchCopyHistory = async () => {
     if (!account) return;
     
+    // Prevent multiple simultaneous calls
+    if (loading) return;
+    
+    // Check cache first to prevent rate limiting
+    const cacheKey = `copy_history_${account}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      setCopyHistory(cached);
+      return;
+    }
+    
     try {
+      setLoading(true);
       const response = await apiCall(`${API_CONFIG.endpoints.copyTrading}/history/${account}`, {
         method: 'GET'
       }) as CopyHistoryResponse;
@@ -377,10 +390,17 @@ const CopyTradingDashboard: React.FC = () => {
           pnl: trade.pnl
         }));
         
+        // Cache the result for 60 seconds to prevent rate limiting
+        cache.set(cacheKey, mappedHistory, 60000);
         setCopyHistory(mappedHistory);
       }
     } catch (error) {
       console.error('Failed to fetch copy history:', error);
+      // Cache empty array for 30 seconds on error to prevent spam
+      cache.set(cacheKey, [], 30000);
+      setCopyHistory([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -396,6 +416,44 @@ const CopyTradingDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
+    }
+  };
+
+  // ✅ Manual refresh function to clear cache and refetch data
+  const refreshAllData = async () => {
+    if (!account || loading) return;
+    
+    try {
+      setLoading(true);
+      
+      // Clear cache for this user's data
+      cache.clear();
+      
+      // Refetch all data
+      const avaxBalance = await getUserAvaxBalance(account);
+      setUserAvaxBalance(avaxBalance);
+      
+      try {
+        const copyInfo = await getUserCopyInfo(account);
+        setVaultBalance(copyInfo.depositedBalance);
+      } catch (error) {
+        console.log('Vault info not available:', error);
+        setVaultBalance(0);
+      }
+      
+      await Promise.all([
+        fetchLeaderboard(),
+        fetchFollowedTraders(),
+        fetchCopyHistory(),
+        fetchDashboardStats()
+      ]);
+      
+      toast.success('Data refreshed successfully!');
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      toast.error('Failed to refresh data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -434,7 +492,7 @@ const CopyTradingDashboard: React.FC = () => {
 
       // ✅ STEP 3: Update database via API
       setTransactionStatus("Updating database...");
-      const apiResult = await followTraderAPI(account, traderAddress, followData.allocation);
+      const apiResult = await followTraderAPI(traderAddress, followData.allocation);
 
       if (apiResult.success) {
         toast.success(`Successfully following trader!`);
@@ -458,7 +516,7 @@ const CopyTradingDashboard: React.FC = () => {
         await fetchCopyHistory();
         await fetchDashboardStats();
       } else {
-        throw new Error(apiResult.error || "Database update failed");
+        throw new Error(apiResult.message || "Database update failed");
       }
 
     } catch (error: unknown) {
@@ -486,7 +544,7 @@ const CopyTradingDashboard: React.FC = () => {
 
       // ✅ STEP 2: Update database via API
       setTransactionStatus("Updating database...");
-      const apiResult = await unfollowTraderAPI(account, traderAddress);
+      const apiResult = await unfollowTraderAPI(traderAddress);
 
       if (apiResult.success) {
         toast.success('Successfully unfollowed trader!');
@@ -495,7 +553,7 @@ const CopyTradingDashboard: React.FC = () => {
         await fetchFollowedTraders();
         await fetchDashboardStats();
       } else {
-        throw new Error(apiResult.error || "Database update failed");
+        throw new Error(apiResult.message || "Database update failed");
       }
 
     } catch (error: unknown) {
@@ -567,6 +625,22 @@ const CopyTradingDashboard: React.FC = () => {
             Follow successful traders and automatically copy their trades
           </p>
         </div>
+        {/* ✅ Add refresh button */}
+        {isConnected && (
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={refreshAllData}
+              disabled={loading}
+              className="cursor-pointer px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all flex items-center space-x-2"
+              title="Refresh all data"
+            >
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Transaction Status */}
