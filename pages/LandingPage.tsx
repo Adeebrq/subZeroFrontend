@@ -16,11 +16,30 @@ const NAV_ITEMS = [
   { href: "#workings", label: "Workings" },
 ];
 
-// ✅ FIXED: Inline WalletNavigation component instead of separate file
+// ✅ FIXED: WalletNavigation component with proper error boundaries
 const WalletNavigation = () => {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   
+  // Safe wallet hook usage with error boundary
+  let walletData;
+  try {
+    walletData = useWallet();
+  } catch (error) {
+    console.warn('Wallet context not available:', error);
+    walletData = {
+      isConnected: false,
+      isConnecting: false,
+      account: null,
+      balanceFormatted: null,
+      error: null,
+      connect: async () => {},
+      disconnect: () => {},
+      isMetaMaskInstalled: false,
+      isOnCorrectNetwork: false
+    };
+  }
+
   const { 
     isConnected, 
     isConnecting, 
@@ -31,7 +50,7 @@ const WalletNavigation = () => {
     disconnect,
     isMetaMaskInstalled,
     isOnCorrectNetwork 
-  } = useWallet();
+  } = walletData;
 
   useEffect(() => {
     setIsMounted(true);
@@ -149,35 +168,28 @@ const WalletNavigation = () => {
   );
 };
 
-// ✅ FIXED: Dynamic import with proper NoSSR wrapper
-const DynamicWalletNavigation = dynamic(
-  () => Promise.resolve(WalletNavigation),
-  {
-    ssr: false,
-    loading: () => (
-      <nav className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 backdrop-blur-md bg-white/10 border border-white/20 shadow-lg px-10 py-3 rounded-full flex items-center gap-6 text-white text-sm font-medium">
-        <div className="logo text-cyan-500 text-3xl font-bold mr-6">SubZero</div>
-        <div className="flex items-center gap-6">
-          <a href="#features" className="text-cyan-500 hover:text-gray-900 transition-colors">Features</a>
-          <a href="#workings" className="text-cyan-500 hover:text-gray-900 transition-colors">Workings</a>
-        </div>
-        <div className="ml-6">
-          <button
-            disabled
-            className="bg-gray-500 text-white font-semibold px-6 py-1.5 rounded-full opacity-50 cursor-not-allowed whitespace-nowrap"
-          >
-            Loading...
-          </button>
-        </div>
-      </nav>
-    )
-  }
-);
-
+// ✅ FIXED: HeroContent component with proper error boundaries
 const HeroContent = () => {
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   
+  // Safe wallet hook usage with error boundary
+  let walletData;
+  try {
+    walletData = useWallet();
+  } catch (error) {
+    console.warn('Wallet context not available:', error);
+    walletData = {
+      isConnected: false,
+      isConnecting: false,
+      account: null,
+      connect: async () => {},
+      disconnect: () => {},
+      isMetaMaskInstalled: false,
+      isOnCorrectNetwork: false
+    };
+  }
+
   const { 
     isConnected, 
     isConnecting, 
@@ -186,7 +198,7 @@ const HeroContent = () => {
     disconnect,
     isMetaMaskInstalled,
     isOnCorrectNetwork 
-  } = useWallet();
+  } = walletData;
 
   useEffect(() => {
     setIsMounted(true);
@@ -279,12 +291,66 @@ const HeroContent = () => {
   );
 };
 
+// ✅ COMPLETELY FIXED: Dynamic import with NoSSR and fallback
+const DynamicWalletNavigation = dynamic(
+  () => Promise.resolve(WalletNavigation),
+  {
+    ssr: false,
+    loading: () => (
+      <nav className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 backdrop-blur-md bg-white/10 border border-white/20 shadow-lg px-10 py-3 rounded-full flex items-center gap-6 text-white text-sm font-medium">
+        <div className="logo text-cyan-500 text-3xl font-bold mr-6">SubZero</div>
+        <div className="flex items-center gap-6">
+          <a href="#features" className="text-cyan-500 hover:text-gray-900 transition-colors">Features</a>
+          <a href="#workings" className="text-cyan-500 hover:text-gray-900 transition-colors">Workings</a>
+        </div>
+        <div className="ml-6">
+          <button
+            disabled
+            className="bg-gray-500 text-white font-semibold px-6 py-1.5 rounded-full opacity-50 cursor-not-allowed whitespace-nowrap"
+          >
+            Loading...
+          </button>
+        </div>
+      </nav>
+    )
+  }
+);
+
+const DynamicHeroContent = dynamic(
+  () => Promise.resolve(HeroContent),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex-1">
+        <h1 className="text-white text-6xl font-extrabold leading-tight mb-5 animate-fade-in-up">
+          Turn your<br />
+          Trades into<br />
+          <span className="bg-[#ffffff] px-4 py-1 rounded-md inline-block">
+            <span className="bg-gradient-to-r from-blue-600 to-blue-900 bg-clip-text text-transparent font-extrabold">
+              Fortunes
+            </span>
+          </span>
+        </h1>
+        <p className="text-white text-lg leading-relaxed mb-10 opacity-90 animate-fade-in-up animation-delay-150">
+          {`Watch your wealth multiply while you sleep, master decentralized microtrading, copy proven strategies, and compound returns on Avalanche's lightning network.`}
+        </p>
+        <button
+          disabled
+          className="bg-gray-500 text-white font-medium px-6 py-3 rounded-full opacity-50 cursor-not-allowed animate-fade-in-up animation-delay-200 shadow-lg"
+        >
+          Loading...
+        </button>
+      </div>
+    )
+  }
+);
+
 const HeroSection = () => (
   <div className="min-h-screen bg-cover bg-center bg-no-repeat relative"
        style={{ backgroundImage: 'url(/bg.svg)' }}>
     <DynamicWalletNavigation />
     <div className="pt-32 flex items-center px-10 gap-20 max-w-7xl mx-auto">
-      <HeroContent />
+      <DynamicHeroContent />
       <div className="w-auto p-0">
         <div className="flex flex-col gap-3">
           <div className="w-[356px] h-[249px] bg-white rounded-lg animate-fade-in-up animation-delay-300">
