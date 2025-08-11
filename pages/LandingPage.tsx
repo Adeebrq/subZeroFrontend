@@ -174,29 +174,110 @@ const DynamicWalletNavigation = dynamic(
   }
 );
 
-const HeroContent = () => (
-  <div className="flex-1">
-    <h1 className="text-white text-6xl font-extrabold leading-tight mb-5 animate-fade-in-up">
-      Turn your<br />
-      Trades into<br />
-      <span className="bg-[#ffffff] px-4 py-1 rounded-md inline-block">
-        <span className="bg-gradient-to-r from-blue-600 to-blue-900 bg-clip-text text-transparent font-extrabold">
-          Fortunes
+const HeroContent = () => {
+  const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
+  
+  const { 
+    isConnected, 
+    isConnecting, 
+    account, 
+    connect, 
+    disconnect,
+    isMetaMaskInstalled,
+    isOnCorrectNetwork 
+  } = useWallet();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isConnected && account && isMounted) {
+      router.push('/dashboard');
+    }
+  }, [isConnected, account, router, isMounted]);
+
+  const handleWalletAction = async () => {
+    if (isConnected) {
+      disconnect();
+    } else {
+      try {
+        await connect();
+      } catch (connectError) {
+        console.error('Connection failed:', connectError);
+      }
+    }
+  };
+  
+  const getButtonContent = () => {
+    if (!isMetaMaskInstalled) {
+      return (
+        <div className="cursor-pointer flex items-center gap-2">
+          <span>Install MetaMask</span>
+          <Image src="/metaMaskLogo.png" alt="MetaMask" width={20} height={20} />
+        </div>
+      );
+    }
+    if (isConnecting) return "Connecting...";
+    if (isConnected) {
+      return `${account?.slice(0, 6)}...${account?.slice(-4)}`;
+    }
+    return (
+      <div className="cursor-pointer flex items-center gap-2">
+        <span>Connect now</span>
+        <Image src="/metaMaskLogo.png" alt="MetaMask" width={20} height={20} />
+        <span className="text-base">→</span>
+      </div>
+    );
+  };
+  
+  const getButtonStyle = () => {
+    if (isConnected && isOnCorrectNetwork) {
+      return "bg-green-500 text-white hover:bg-green-600";
+    }
+    if (isConnected && !isOnCorrectNetwork) {
+      return "bg-yellow-500 text-white hover:bg-yellow-600";
+    }
+    if (!isMetaMaskInstalled) {
+      return "bg-gray-500 text-white cursor-not-allowed";
+    }
+    return "bg-white text-indigo-600 hover:bg-indigo-600 hover:text-white";
+  };
+
+  return (
+    <div className="flex-1">
+      <h1 className="text-white text-6xl font-extrabold leading-tight mb-5 animate-fade-in-up">
+        Turn your<br />
+        Trades into<br />
+        <span className="bg-[#ffffff] px-4 py-1 rounded-md inline-block">
+          <span className="bg-gradient-to-r from-blue-600 to-blue-900 bg-clip-text text-transparent font-extrabold">
+            Fortunes
+          </span>
         </span>
-      </span>
-    </h1>
-    <p className="text-white text-lg leading-relaxed mb-10 opacity-90 animate-fade-in-up animation-delay-150">
-      {`Watch your wealth multiply while you sleep, master decentralized microtrading, copy proven strategies, and compound returns on Avalanche's lightning network.`}
-    </p>
-    <a
-      href="#get-started"
-      className="bg-white text-indigo-600 px-6 py-3 rounded-full font-medium text-sm flex items-center gap-2 hover:-translate-y-0.5 hover:shadow-xl transition-all shadow-lg w-fit animate-fade-in-up animation-delay-200"
-    >
-      Get started now
-      <span className="text-base">→</span>
-    </a>
-  </div>
-);
+      </h1>
+      <p className="text-white text-lg leading-relaxed mb-10 opacity-90 animate-fade-in-up animation-delay-150">
+        {`Watch your wealth multiply while you sleep, master decentralized microtrading, copy proven strategies, and compound returns on Avalanche's lightning network.`}
+      </p>
+      {!isMounted ? (
+        <button
+          disabled
+          className="bg-gray-500 text-white font-medium px-6 py-3 rounded-full opacity-50 cursor-not-allowed animate-fade-in-up animation-delay-200 shadow-lg"
+        >
+          Loading...
+        </button>
+      ) : (
+        <button
+          onClick={handleWalletAction}
+          disabled={!isMetaMaskInstalled || isConnecting}
+          className={`${getButtonStyle()} px-6 py-3 rounded-full font-medium text-sm flex items-center gap-2 hover:-translate-y-0.5 hover:shadow-xl transition-all shadow-lg w-fit animate-fade-in-up animation-delay-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {getButtonContent()}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const HeroSection = () => (
   <div className="min-h-screen bg-cover bg-center bg-no-repeat relative"

@@ -18,7 +18,7 @@ export function HackathonFooter() {
                   SubZero
                 </h3>
                 <p className="text-white/80 text-base leading-relaxed max-w-lg">
-                  Built for the hackathon. Empowering traders with automated copy trading solutions on the Avalanche network.
+                  The all in one trading platform, Trade everything, copy everything, track everything.
                 </p>
               </div>
               <div className="inline-block px-3 py-1 bg-white/10 rounded-full text-xs text-white/70 border border-white/20">
@@ -37,7 +37,7 @@ export function HackathonFooter() {
               <ul className="space-y-3 text-sm text-white/80">
                 <li>
                   <a 
-                    href="#" 
+                    href="https://github.com/Adeebrq/subZeroFrontend" 
                     className="hover:text-white transition-colors duration-200 flex items-center gap-2"
                   >
                     <span>→</span> GitHub
@@ -45,7 +45,7 @@ export function HackathonFooter() {
                 </li>
                 <li>
                   <a 
-                    href="#" 
+                    href="https://github.com/Adeebrq/subZeroFrontend" 
                     className="hover:text-white transition-colors duration-200 flex items-center gap-2"
                   >
                     <span>→</span> Team
@@ -53,7 +53,7 @@ export function HackathonFooter() {
                 </li>
                 <li>
                   <a 
-                    href="#" 
+                    href="https://x.com/a6xx9rq" 
                     className="hover:text-white transition-colors duration-200 flex items-center gap-2"
                   >
                     <span>→</span> Support
