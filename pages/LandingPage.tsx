@@ -16,41 +16,27 @@ const NAV_ITEMS = [
   { href: "#workings", label: "Workings" },
 ];
 
-// ✅ FIXED: WalletNavigation component with proper error boundaries
+// ✅ FIXED: WalletNavigation component with proper hook usage
 const WalletNavigation = () => {
   const [isMounted, setIsMounted] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const router = useRouter();
   
-  // Safe wallet hook usage with error boundary
-  let walletData;
-  try {
-    walletData = useWallet();
-  } catch (error) {
-    console.warn('Wallet context not available:', error);
-    walletData = {
-      isConnected: false,
-      isConnecting: false,
-      account: null,
-      balanceFormatted: null,
-      error: null,
-      connect: async () => {},
-      disconnect: () => {},
-      isMetaMaskInstalled: false,
-      isOnCorrectNetwork: false
-    };
-  }
-
+  // Always call the hook, handle errors in the component logic
+  const walletData = useWallet();
+  
+  // Destructure with fallback values in case of errors
   const { 
-    isConnected, 
-    isConnecting, 
-    account, 
-    balanceFormatted, 
-    error, 
-    connect, 
-    disconnect,
-    isMetaMaskInstalled,
-    isOnCorrectNetwork 
-  } = walletData;
+    isConnected = false, 
+    isConnecting = false, 
+    account = null, 
+    balanceFormatted = null, 
+    error = null, 
+    connect = async () => {}, 
+    disconnect = () => {},
+    isMetaMaskInstalled = false,
+    isOnCorrectNetwork = false 
+  } = walletData || {};
 
   useEffect(() => {
     setIsMounted(true);
@@ -63,14 +49,15 @@ const WalletNavigation = () => {
   }, [isConnected, account, router, isMounted]);
 
   const handleWalletAction = async () => {
-    if (isConnected) {
-      disconnect();
-    } else {
-      try {
+    try {
+      if (isConnected) {
+        disconnect();
+      } else {
         await connect();
-      } catch (connectError) {
-        console.error('Connection failed:', connectError);
       }
+    } catch (connectError) {
+      console.error('Connection failed:', connectError);
+      setHasError(true);
     }
   };
   
@@ -158,9 +145,9 @@ const WalletNavigation = () => {
           </div>
         )}
         
-        {isMounted && error && (
+        {isMounted && (error || hasError) && (
           <div className="text-xs text-red-300 mt-1 max-w-40 truncate">
-            {error}
+            {error || "Connection error"}
           </div>
         )}
       </div>
@@ -168,37 +155,25 @@ const WalletNavigation = () => {
   );
 };
 
-// ✅ FIXED: HeroContent component with proper error boundaries
+// ✅ FIXED: HeroContent component with proper hook usage
 const HeroContent = () => {
   const [isMounted, setIsMounted] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const router = useRouter();
   
-  // Safe wallet hook usage with error boundary
-  let walletData;
-  try {
-    walletData = useWallet();
-  } catch (error) {
-    console.warn('Wallet context not available:', error);
-    walletData = {
-      isConnected: false,
-      isConnecting: false,
-      account: null,
-      connect: async () => {},
-      disconnect: () => {},
-      isMetaMaskInstalled: false,
-      isOnCorrectNetwork: false
-    };
-  }
-
+  // Always call the hook, handle errors in the component logic
+  const walletData = useWallet();
+  
+  // Destructure with fallback values in case of errors
   const { 
-    isConnected, 
-    isConnecting, 
-    account, 
-    connect, 
-    disconnect,
-    isMetaMaskInstalled,
-    isOnCorrectNetwork 
-  } = walletData;
+    isConnected = false, 
+    isConnecting = false, 
+    account = null, 
+    connect = async () => {}, 
+    disconnect = () => {},
+    isMetaMaskInstalled = false,
+    isOnCorrectNetwork = false 
+  } = walletData || {};
 
   useEffect(() => {
     setIsMounted(true);
@@ -211,14 +186,15 @@ const HeroContent = () => {
   }, [isConnected, account, router, isMounted]);
 
   const handleWalletAction = async () => {
-    if (isConnected) {
-      disconnect();
-    } else {
-      try {
+    try {
+      if (isConnected) {
+        disconnect();
+      } else {
         await connect();
-      } catch (connectError) {
-        console.error('Connection failed:', connectError);
       }
+    } catch (connectError) {
+      console.error('Connection failed:', connectError);
+      setHasError(true);
     }
   };
   
