@@ -117,11 +117,10 @@ Unlike traditional trading platforms that require KYC, verification time, email/
 4) Viola! Enjoy the magic of Subzero at your fingertips 
 
 
-## Remaining Code-
+## Repositories
 
-
-SubZero Backend code: [https://github.com/Adeebrq/subZeroBackend](https://github.com/Adeebrq/subZeroBackend)]
-SubZero Solidity code: [https://github.com/Adeebrq/subZeroSolidity](https://github.com/Adeebrq/subZeroSolidity)] (Deployed via remix)
+- **Backend**: [subZeroBackend](https://github.com/Adeebrq/subZeroBackend)
+- **Smart Contracts**: [subZeroSolidity](https://github.com/Adeebrq/subZeroSolidity) *(Deployed via Remix)*
 
 
 
