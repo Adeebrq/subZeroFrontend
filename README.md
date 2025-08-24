@@ -27,6 +27,7 @@ It doesnt make sense to signup for multiple platforms to invest in different ass
 
 
 ## ⚠️ Note
+On a initial cold load, the server will be down and requires 1-2 mins to start back up.
 
 Due to the lack of funds & SubZero operating under the Fuji testnet network, we have only implemented cryptocurrency trading for the time being. Accurate oracles for stock, commodities & other asset classes are only available on the mainnet, hence this has been kept aside for __future releases.__
 
